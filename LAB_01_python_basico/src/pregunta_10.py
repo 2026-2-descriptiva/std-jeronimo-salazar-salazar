@@ -1,3 +1,11 @@
+import gzip
+
+
+def leer_datos():
+    with gzip.open("data/data.csv.gz", "rt", encoding="utf-8") as f:
+        return [line.rstrip("").split("	") for line in f if line.strip()]
+
+
 def pregunta_10():
     """
     Para cada registro del archivo, en el mismo orden en que aparecen,
@@ -11,4 +19,7 @@ def pregunta_10():
         [("E", 3, 5), ("A", 3, 4), ("B", 4, 4), ...]
     """
 
-    raise NotImplementedError
+    return [
+        (row[0], len(row[3].split(",")), len(row[4].split(",")))
+        for row in leer_datos()
+    ]

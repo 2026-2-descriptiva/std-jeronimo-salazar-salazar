@@ -1,3 +1,11 @@
+import gzip
+
+
+def leer_datos():
+    with gzip.open("data/data.csv.gz", "rt", encoding="utf-8") as f:
+        return [line.rstrip("").split("	") for line in f if line.strip()]
+
+
 def pregunta_07():
     """
     Para cada valor distinto de la segunda columna (`value`), construya la
@@ -11,4 +19,7 @@ def pregunta_07():
         [(0, ["C"]), (1, ["E", "B", "E"]), (2, ["A", "E"]), ...]
     """
 
-    raise NotImplementedError
+    letras = {}
+    for row in leer_datos():
+        letras.setdefault(int(row[1]), []).append(row[0])
+    return sorted(letras.items())
