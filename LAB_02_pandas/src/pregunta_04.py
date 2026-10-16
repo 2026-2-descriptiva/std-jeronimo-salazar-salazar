@@ -13,4 +13,11 @@ def pregunta_04():
         ...
     """
 
-    raise NotImplementedError
+    import pandas as pd
+
+    df = pd.read_csv("data/tbl0.tsv", sep="\t")
+
+    resultado = df.groupby("c1")["c2"].mean()
+    resultado = resultado.sort_index()
+
+    return resultado

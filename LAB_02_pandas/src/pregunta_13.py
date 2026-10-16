@@ -15,4 +15,14 @@ def pregunta_13():
         ...
     """
 
-    raise NotImplementedError
+    import pandas as pd
+
+    df0 = pd.read_csv("data/tbl0.tsv", sep="\t")
+    df2 = pd.read_csv("data/tbl2.tsv", sep="\t")
+
+    resultado = df0.merge(df2, on="c0")
+    resultado = resultado.groupby("c1")["c5b"].sum()
+    resultado = resultado.sort_index()
+
+    return resultado
+

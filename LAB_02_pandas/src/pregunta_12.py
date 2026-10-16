@@ -4,7 +4,7 @@ def pregunta_12():
     filas. Construya un DataFrame con una fila por cada valor de `c0`, en
     orden ascendente, y las columnas `c0` y `c5`. En `c5`, forme un texto
     `c5a:c5b` para cada fila de ese `c0`, ordene esos textos alfabéticamente y
-    únalos separados por comas.
+    únalos separados por comas. 
 
     Ejemplo del formato de la respuesta:
 
@@ -15,4 +15,20 @@ def pregunta_12():
         ...
     """
 
-    raise NotImplementedError
+    import pandas as pd
+
+    df = pd.read_csv("data/tbl2.tsv", sep="\t")
+
+    df["c5"] = df["c5a"] + ":" + df["c5b"].astype(str)
+
+    resultado = df.groupby("c0")["c5"].apply(list)
+
+    for valor in resultado.index:
+        resultado[valor].sort()
+
+    resultado = resultado.apply(lambda x: ",".join(x))
+    resultado = resultado.sort_index()
+    resultado = resultado.to_frame(name="c5")
+    resultado = resultado.reset_index()
+
+    return resultado

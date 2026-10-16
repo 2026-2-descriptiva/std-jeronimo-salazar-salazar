@@ -9,4 +9,18 @@ def pregunta_06():
         ["A", "B", "C", "D", "E", "F", "G"]
     """
 
-    raise NotImplementedError
+    import pandas as pd
+
+    df = pd.read_csv("data/tbl1.tsv", sep="\t")
+
+    valores = df["c4"].unique()
+
+    resultado = []
+
+    for valor in valores:
+        resultado.append(valor.upper())
+
+    resultado.sort()
+
+    return resultado
+

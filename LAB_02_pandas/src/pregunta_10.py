@@ -15,4 +15,19 @@ def pregunta_10():
         ...
     """
 
-    raise NotImplementedError
+    import pandas as pd
+
+    df = pd.read_csv("data/tbl0.tsv", sep="\t")
+
+    resultado = df.groupby("c1")["c2"].apply(list)
+
+    for categoria in resultado.index:
+        resultado[categoria].sort()
+
+    resultado = resultado.sort_index()
+
+    resultado = resultado.apply(lambda x: ":".join(map(str, x)))
+
+    resultado = resultado.to_frame(name="c2")
+
+    return resultado

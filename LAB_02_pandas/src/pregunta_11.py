@@ -4,7 +4,7 @@ def pregunta_11():
     filas, una por cada letra de la columna `c4`. Construya un DataFrame con
     una fila por cada valor de `c0`, en orden ascendente, y las columnas `c0`
     y `c4`. En `c4`, escriba las letras de ese `c0` ordenadas alfabéticamente
-    y separadas por comas.
+    y separadas por comas. 
 
     Ejemplo del formato de la respuesta:
 
@@ -15,4 +15,19 @@ def pregunta_11():
         ...
     """
 
-    raise NotImplementedError
+    import pandas as pd
+
+    df = pd.read_csv("data/tbl1.tsv", sep="\t")
+
+    resultado = df.groupby("c0")["c4"].apply(list)
+
+    for valor in resultado.index:
+        resultado[valor].sort()
+
+    resultado = resultado.apply(lambda x: ",".join(x))
+    resultado = resultado.sort_index()
+    resultado = resultado.to_frame(name="c4")
+    resultado = resultado.reset_index()
+
+    return resultado
+
