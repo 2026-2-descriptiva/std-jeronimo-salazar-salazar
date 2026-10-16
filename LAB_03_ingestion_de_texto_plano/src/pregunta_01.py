@@ -26,4 +26,36 @@ def pregunta_01():
         ...
     """
 
-    raise NotImplementedError
+    import re
+
+    import pandas as pd
+
+    with open("data/clusters_report.txt", encoding="utf-8") as file:
+        lines = file.readlines()[4:]
+
+    rows = []
+    for line in lines:
+        if not line.strip():
+            continue
+        match = re.match(r"^\s*(\d+)\s+(\d+)\s+([\d,]+)\s*%\s+(.*)$", line)
+        if match:
+            cluster, cantidad, porcentaje, palabras = match.groups()
+            rows.append(
+                [int(cluster), int(cantidad), float(porcentaje.replace(",", ".")), palabras]
+            )
+        else:
+            rows[-1][3] += " " + line.strip()
+
+    for row in rows:
+        palabras = re.sub(r"\s+", " ", row[3]).strip().rstrip(".")
+        row[3] = re.sub(r"\s*,\s*", ", ", palabras)
+
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "cluster",
+            "cantidad_de_palabras_clave",
+            "porcentaje_de_palabras_clave",
+            "principales_palabras_clave",
+        ],
+    )
