@@ -26,4 +26,21 @@ def pregunta_01():
         ...
     """
 
-    raise NotImplementedError
+    import os
+
+    import pandas as pd
+
+    os.makedirs("submission", exist_ok=True)
+
+    for split in ["train", "test"]:
+        rows = []
+        split_dir = os.path.join("data", split)
+        for target in sorted(os.listdir(split_dir)):
+            target_dir = os.path.join(split_dir, target)
+            for filename in sorted(os.listdir(target_dir)):
+                with open(os.path.join(target_dir, filename), encoding="utf-8") as file:
+                    rows.append({"phrase": file.read().strip(), "target": target})
+
+        pd.DataFrame(rows, columns=["phrase", "target"]).to_csv(
+            os.path.join("submission", f"{split}_dataset.csv"), index=False
+        )
