@@ -1,3 +1,8 @@
+import json
+
+import pandas as pd
+
+
 def pregunta_01():
     """
     Una aseguradora quiere publicar datos de sus afiliados para que un grupo
@@ -80,4 +85,72 @@ def pregunta_01():
         }
     """
 
-    raise NotImplementedError
+    df = pd.read_csv("data/insurance.csv.gz")
+
+    # Riesgo con los cuasi-identificadores originales
+    original_qi = ["age", "sex", "bmi", "children", "region"]
+    original_sizes = df.groupby(original_qi)["age"].transform("size")
+
+    # Generalización
+    df["age_group"] = pd.cut(
+        df["age"], bins=[17, 29, 39, 49, 64], labels=["18-29", "30-39", "40-49", "50-64"]
+    )
+    df["bmi_group"] = pd.cut(
+        df["bmi"],
+        bins=[0, 18.5, 25, 30, float("inf")],
+        labels=["bajo peso", "normal", "sobrepeso", "obesidad"],
+        right=False,
+    )
+    df["children_group"] = pd.cut(
+        df["children"], bins=[-1, 0, 2, float("inf")], labels=["0", "1-2", "3+"]
+    )
+    df[["age_group", "bmi_group", "children_group"]] = df[
+        ["age_group", "bmi_group", "children_group"]
+    ].astype(str)
+
+    schemes = {
+        "with_children": ["age_group", "sex", "bmi_group", "children_group", "region"],
+        "without_children": ["age_group", "sex", "bmi_group", "region"],
+    }
+
+    results = {}
+    published_data = {}
+    for name, qi in schemes.items():
+        sizes = df.groupby(qi)["age"].transform("size")
+        published = df[sizes >= 5]
+
+        # Clases publicadas donde todos fuman o ninguno fuma
+        n_smoker_values = published.groupby(qi)["smoker"].transform("nunique")
+        no_diversity = published[n_smoker_values == 1]
+
+        results[name] = {
+            "quasi_identifiers": qi,
+            "equivalence_classes": int(df.groupby(qi).ngroups),
+            "k_before_suppression": int(sizes.min()),
+            "suppressed_records": int((sizes < 5).sum()),
+            "published_records": int(len(published)),
+            "published_classes": int(published.groupby(qi).ngroups),
+            "classes_without_smoker_diversity": int(no_diversity.groupby(qi).ngroups),
+            "records_without_smoker_diversity": int(len(no_diversity)),
+        }
+        published_data[name] = published
+
+    selected = min(results, key=lambda name: results[name]["suppressed_records"])
+    published = published_data[selected][schemes[selected] + ["smoker", "charges"]]
+
+    report = {
+        "original_k": int(original_sizes.min()),
+        "original_unique_records": int((original_sizes == 1).sum()),
+        "schemes": results,
+        "selected_scheme": selected,
+        "mean_charges_original": float(df["charges"].mean()),
+        "mean_charges_published": float(published["charges"].mean()),
+        "smoker_rate_original": float((df["smoker"] == "yes").mean()),
+        "smoker_rate_published": float((published["smoker"] == "yes").mean()),
+    }
+
+    published.to_csv("submission/insurance_published.csv", index=False)
+    with open("submission/privacy_report.json", "w", encoding="utf-8") as file:
+        json.dump(report, file, indent=2, ensure_ascii=False)
+
+    return report
