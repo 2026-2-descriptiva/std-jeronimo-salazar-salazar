@@ -50,4 +50,68 @@ def pregunta_01() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         ...
     """
 
-    raise NotImplementedError
+    df = pd.read_csv("data/superstore_orders.csv.gz", sep=";", decimal=",")
+    df["loss"] = df["Profit"] < 0
+    df["lost"] = -df["Profit"].where(df["loss"], 0)
+    df["discount_band"] = pd.cut(
+        df["Discount"],
+        bins=[-1, 0, 0.05, 0.10, float("inf")],
+        labels=["0%", "1%-5%", "6%-10%", "más de 10%"],
+    )
+
+    # 1. Resumen general
+    summary = pd.DataFrame(
+        {
+            "lines": [len(df)],
+            "orders": [df["Order ID"].nunique()],
+            "sales": [df["Sales"].sum()],
+            "profit": [df["Profit"].sum()],
+            "profit_margin": [df["Profit"].sum() / df["Sales"].sum()],
+            "loss_lines": [df["loss"].sum()],
+            "loss_line_rate": [df["loss"].mean()],
+            "lost_profit": [df["lost"].sum()],
+        }
+    )
+
+    # 2. Resumen por rango de descuento
+    discounts = (
+        df.groupby("discount_band", observed=False)
+        .agg(
+            lines=("Sales", "size"),
+            sales=("Sales", "sum"),
+            profit=("Profit", "sum"),
+            loss_line_rate=("loss", "mean"),
+            lost_profit=("lost", "sum"),
+        )
+        .reset_index()
+    )
+    discounts["profit_margin"] = discounts["profit"] / discounts["sales"]
+    discounts = discounts[
+        ["discount_band", "lines", "sales", "profit", "profit_margin",
+         "loss_line_rate", "lost_profit"]
+    ]
+
+    # 3. Segmentos segmento-categoría que más pierden
+    segments = (
+        df.groupby(["Customer Segment", "Product Category"])
+        .agg(
+            lines=("Sales", "size"),
+            sales=("Sales", "sum"),
+            profit=("Profit", "sum"),
+            lost_profit=("lost", "sum"),
+        )
+        .reset_index()
+    )
+    segments["profit_margin"] = segments["profit"] / segments["sales"]
+    segments = segments[segments["lines"] >= 100]
+    segments = segments.sort_values("lost_profit", ascending=False).head(5)
+    segments = segments[
+        ["Customer Segment", "Product Category", "lines", "sales", "profit",
+         "profit_margin", "lost_profit"]
+    ]
+
+    summary.to_csv("submission/profitability_summary.csv", index=False)
+    discounts.to_csv("submission/discount_summary.csv", index=False)
+    segments.to_csv("submission/priority_segments.csv", index=False)
+
+    return summary, discounts, segments
