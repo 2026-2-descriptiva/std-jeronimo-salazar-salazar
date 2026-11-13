@@ -43,4 +43,42 @@ def clean_campaign_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         ...
     """
 
-    raise NotImplementedError
+    df = pd.concat(
+        [pd.read_csv(f"data/bank-marketing-campaing-{i}.csv.gz") for i in range(10)]
+    )
+
+    # Tabla client
+    client = df[
+        ["client_id", "age", "job", "marital", "education", "credit_default", "mortgage"]
+    ].copy()
+    client["job"] = client["job"].str.replace(".", "").str.replace("-", "_")
+    client["education"] = client["education"].str.replace(".", "_")
+    client["education"] = client["education"].replace("unknown", pd.NA)
+    client["credit_default"] = (client["credit_default"] == "yes").astype(int)
+    client["mortgage"] = (client["mortgage"] == "yes").astype(int)
+
+    # Tabla campaign
+    campaign = df[
+        [
+            "client_id",
+            "number_contacts",
+            "contact_duration",
+            "previous_campaign_contacts",
+            "previous_outcome",
+            "campaign_outcome",
+        ]
+    ].copy()
+    campaign["previous_outcome"] = (campaign["previous_outcome"] == "success").astype(int)
+    campaign["campaign_outcome"] = (campaign["campaign_outcome"] == "yes").astype(int)
+    campaign["last_contact_date"] = pd.to_datetime(
+        "2022-" + df["month"] + "-" + df["day"].astype(str), format="%Y-%b-%d"
+    ).dt.strftime("%Y-%m-%d")
+
+    # Tabla economics
+    economics = df[["client_id", "cons_price_idx", "euribor_three_months"]]
+
+    client.to_csv("submission/client.csv", index=False)
+    campaign.to_csv("submission/campaign.csv", index=False)
+    economics.to_csv("submission/economics.csv", index=False)
+
+    return client, campaign, economics
