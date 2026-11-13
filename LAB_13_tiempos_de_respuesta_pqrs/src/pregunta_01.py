@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 
@@ -61,4 +62,67 @@ def pregunta_01() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         ...
     """
 
-    raise NotImplementedError
+    letter = pd.read_csv("data/historical_requests_letter.csv.gz").drop_duplicates()
+    web = pd.read_csv("data/historical_requests_web.csv.gz").drop_duplicates()
+    letter["channel"] = "letter"
+    web["channel"] = "web"
+    df = pd.concat([letter, web], ignore_index=True)
+
+    df["in_date"] = pd.to_datetime(df["in_date"])
+    df["out_date"] = pd.to_datetime(df["out_date"])
+    df["year"] = df["in_date"].dt.year
+    df["answered"] = df["out_date"].notna()
+    df["pending"] = ~df["answered"]
+
+    # Días de respuesta (solo para las solicitudes respondidas)
+    answered = df["answered"]
+    df["calendar_days"] = (df["out_date"] - df["in_date"]).dt.days
+    df.loc[answered, "business_days"] = np.busday_count(
+        (df.loc[answered, "in_date"] + pd.Timedelta(days=1)).values.astype("datetime64[D]"),
+        (df.loc[answered, "out_date"] + pd.Timedelta(days=1)).values.astype("datetime64[D]"),
+    )
+    df["on_time"] = df["business_days"] <= 15
+
+    # 1. Resumen por canal
+    channels = (
+        df.groupby("channel")
+        .agg(
+            requests=("channel", "size"),
+            answered=("answered", "sum"),
+            pending=("pending", "sum"),
+            median_business_days=("business_days", "median"),
+            on_time_rate=("on_time", "mean"),
+        )
+        .reset_index()
+    )
+
+    # 2. Resumen por año y canal
+    yearly = (
+        df.groupby(["year", "channel"])
+        .agg(
+            requests=("channel", "size"),
+            pending=("pending", "sum"),
+            on_time_rate=("on_time", "mean"),
+        )
+        .reset_index()
+    )
+
+    # 3. Resumen por día de entrada
+    days_order = ["Monday", "Tuesday", "Wednesday", "Thursday",
+                  "Friday", "Saturday", "Sunday"]
+    days = (
+        df.groupby("day_name")
+        .agg(
+            requests=("channel", "size"),
+            median_calendar_days=("calendar_days", "median"),
+            median_business_days=("business_days", "median"),
+        )
+        .reindex(days_order)
+        .reset_index()
+    )
+
+    channels.to_csv("submission/channel_summary.csv", index=False)
+    yearly.to_csv("submission/yearly_summary.csv", index=False)
+    days.to_csv("submission/entry_day_summary.csv", index=False)
+
+    return channels, yearly, days
