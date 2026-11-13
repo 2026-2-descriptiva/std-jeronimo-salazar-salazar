@@ -58,4 +58,53 @@ def pregunta_01() -> tuple[pd.DataFrame, pd.DataFrame]:
         ...
     """
 
-    raise NotImplementedError
+    df = pd.read_csv("data/flights_by_carrier_day_hour.csv.gz")
+    cols = ["operated_flights", "delayed_departure_15_flights"]
+
+    # 1. Tasa nacional de demora por hora
+    hourly = df.groupby("scheduled_departure_hour")[cols].sum().reset_index()
+    hourly[cols] = hourly[cols].astype(int)
+    hourly["delay_rate"] = (
+        hourly["delayed_departure_15_flights"] / hourly["operated_flights"]
+    )
+
+    # 2. Demoras esperadas de cada aerolínea según sus horarios
+    by_hour = (
+        df.groupby(["reporting_airline", "scheduled_departure_hour"])[cols]
+        .sum()
+        .reset_index()
+        .merge(hourly[["scheduled_departure_hour", "delay_rate"]])
+    )
+    by_hour["expected_delayed_flights"] = (
+        by_hour["operated_flights"] * by_hour["delay_rate"]
+    )
+
+    carriers = (
+        by_hour.groupby("reporting_airline")[cols + ["expected_delayed_flights"]]
+        .sum()
+        .reset_index()
+    )
+    carriers[cols] = carriers[cols].astype(int)
+    carriers = carriers[carriers["operated_flights"] >= 100000].copy()
+
+    # 3. Razón observado / esperado y rankings
+    carriers["delay_rate"] = (
+        carriers["delayed_departure_15_flights"] / carriers["operated_flights"]
+    )
+    carriers["observed_to_expected_ratio"] = (
+        carriers["delayed_departure_15_flights"] / carriers["expected_delayed_flights"]
+    )
+    carriers["crude_rank"] = carriers["delay_rate"].rank(ascending=False).astype(int)
+    carriers["adjusted_rank"] = (
+        carriers["observed_to_expected_ratio"].rank(ascending=False).astype(int)
+    )
+    carriers = carriers.sort_values("adjusted_rank")[
+        ["reporting_airline", "operated_flights", "delayed_departure_15_flights",
+         "delay_rate", "expected_delayed_flights", "observed_to_expected_ratio",
+         "crude_rank", "adjusted_rank"]
+    ]
+
+    hourly.to_csv("submission/hourly_delay_rates.csv", index=False)
+    carriers.to_csv("submission/carrier_adjusted_delays.csv", index=False)
+
+    return hourly, carriers
